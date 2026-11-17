@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1E2124">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Gym log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --floor:#1E2124; --mat:#272B2F; --mat-2:#31363B; --line:#3B4147;
+  --chalk:#ECEDE9; --dust:#A1A7AD; --dim:#737A81;
+  --blue:#5A8EF4; --yellow:#F4C531; --green:#46BE72; --red:#EF5B5F;
+  --pad:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--floor);color:var(--chalk)}
+body{font-family:Archivo,system-ui,sans-serif;font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;padding-bottom:120px}
+button,input{font:inherit;color:inherit}
+button{background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--chalk);outline-offset:2px;border-radius:6px}
+.cond{font-stretch:62%}
+
+/* Header */
+.top{position:sticky;top:0;z-index:5;background:var(--floor);padding:10px 12px 0;border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:36px}
+.sheet-name{display:flex;align-items:center;gap:8px;color:var(--dust);font-size:14px;font-weight:500;min-height:36px;max-width:60%}
+.sheet-name span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sheet-name svg{flex:none;opacity:.8}
+.sync{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--dust);min-height:36px;padding:0 2px}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--dim);flex:none}
+.sync[data-tone=good] i{background:var(--green)}
+.sync[data-tone=busy] i{background:var(--yellow)}
+.sync[data-tone=bad] i{background:var(--red)}
+.sync[data-tone=bad]{color:var(--chalk)}
+.tabs{display:flex;gap:22px;overflow-x:auto;scrollbar-width:none;margin:2px -12px 0;padding:0 12px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{font-stretch:68%;font-weight:800;font-size:30px;line-height:1;letter-spacing:-.01em;color:var(--dim);padding:6px 0 10px;white-space:nowrap;border-bottom:4px solid transparent}
+.tab[aria-selected=true]{color:var(--chalk);border-bottom-color:var(--chalk)}
+.progress{display:flex;align-items:center;gap:10px;padding:8px 0 10px;font-size:13px;color:var(--dust)}
+.progress .track{flex:1;height:4px;background:var(--mat-2);border-radius:2px;overflow:hidden}
+.progress .fill{height:100%;background:var(--green);width:0;transition:width .3s}
+
+/* Banner */
+.banner{margin:12px 12px 0;padding:12px 14px;border-radius:12px;background:var(--mat);border-left:4px solid var(--yellow);font-size:14px;display:flex;gap:12px;align-items:center;justify-content:space-between}
+.banner[data-tone=bad]{border-left-color:var(--red)}
+.banner[hidden]{display:none}
+.banner .act{flex:none;background:var(--chalk);color:var(--floor);font-weight:700;border-radius:999px;padding:9px 14px;font-size:14px}
+
+/* List */
+main{padding:4px 12px 0}
+.section{font-stretch:75%;font-weight:700;font-size:16px;color:var(--dust);margin:22px 4px 8px}
+.card{background:var(--mat);border-radius:16px;margin-bottom:8px;scroll-margin-top:150px;border:1px solid transparent}
+.card.open{background:var(--mat);border-color:var(--line)}
+.head{display:grid;grid-template-columns:28px 1fr;gap:4px 10px;width:100%;text-align:left;padding:14px var(--pad);align-items:start}
+.tick{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);margin-top:1px;display:grid;place-items:center}
+.card.done .tick{background:var(--green);border-color:var(--green)}
+.card.done .tick::after{content:"";width:9px;height:5px;border:2.5px solid var(--floor);border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+.ttl{font-stretch:82%;font-weight:700;font-size:19px;line-height:1.2}
+.card.done:not(.open) .ttl{color:var(--dust)}
+.scheme{grid-column:2;font-size:14px;color:var(--dust)}
+.desc{grid-column:2;font-size:14px;color:var(--dust);font-style:italic}
+.chips{grid-column:2;display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:4px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:15px;font-weight:600}
+.chip.empty{color:var(--dim);font-weight:400}
+.badge{--c:var(--blue);width:26px;height:26px;border-radius:50%;background:var(--c);color:var(--floor);font-weight:800;font-size:13px;display:inline-grid;place-items:center;flex:none;box-shadow:inset 0 0 0 3px rgba(0,0,0,.18)}
+.badge.sm{width:20px;height:20px;font-size:11px;font-style:normal;box-shadow:inset 0 0 0 2px rgba(0,0,0,.18)}
+
+.body{padding:0 var(--pad) var(--pad)}
+.extra{margin:-6px 0 12px 38px;color:var(--dust);font-size:14px}
+.person{padding:10px 0;border-top:1px solid var(--line)}
+.person:first-child{border-top:0;padding-top:0}
+.row{display:grid;grid-template-columns:78px 48px 1fr 48px;gap:6px;align-items:center;min-height:56px}
+.row.text{grid-template-columns:78px 1fr}
+.person.pyr .row{grid-template-columns:100px 48px 1fr 48px}
+.person.pyr .under{margin-left:106px}
+.lab span{white-space:nowrap}
+.lab .badge-gap{width:26px;flex:none}
+.lab{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dust);min-width:0}
+.lab .reps{width:30px;background:var(--mat-2);border:0;border-radius:6px;padding:4px 0;text-align:center;font-size:14px;color:var(--chalk)}
+.step{height:48px;border-radius:12px;background:var(--mat-2);display:grid;place-items:center;font-size:26px;font-weight:500;line-height:1;touch-action:manipulation;user-select:none}
+.step:active{background:var(--line)}
+.val{display:flex;align-items:baseline;justify-content:center;gap:2px;min-width:0;height:48px;border-radius:12px;cursor:text}
+.val input{width:100%;min-width:0;background:none;border:0;text-align:right;font-stretch:62%;font-weight:800;font-size:38px;line-height:48px;height:48px;padding:0;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.val input::placeholder{color:var(--dim)}
+.val input:focus{outline:none}
+.val:focus-within{background:var(--floor);box-shadow:inset 0 0 0 2px var(--line)}
+.val .u{font-size:15px;color:var(--dust);font-weight:600;flex:none;padding-right:8px}
+.txt{width:100%;min-height:48px;border-radius:12px;background:var(--mat-2);border:0;padding:10px 12px;font-size:16px}
+.txt:focus{outline:2px solid var(--line)}
+.under{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:2px 0 0 84px;min-height:28px}
+.note{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--dust)}
+.note button{color:var(--dust);padding:4px 6px;font-size:15px}
+.link{font-size:13px;color:var(--dust);text-decoration:underline;text-underline-offset:3px;padding:6px 0;margin-left:auto}
+
+.hist-row{border-top:1px solid var(--line);margin-top:10px;padding-top:6px}
+.hist-btn{font-size:14px;font-weight:600;color:var(--chalk);padding:8px 0;display:flex;align-items:center;gap:8px}
+.hist-btn::after{content:"";width:7px;height:7px;border:2px solid var(--dust);border-top:0;border-left:0;transform:rotate(45deg) translateY(-2px)}
+.hist-btn[aria-expanded=true]::after{transform:rotate(-135deg) translateY(-1px)}
+.hist{display:grid;gap:14px;padding:6px 0 4px}
+.hist-h{display:flex;align-items:center;gap:10px;min-height:44px}
+.spark{flex:1;height:44px;min-width:0}
+.hist-none{font-size:13px;color:var(--dim)}
+.hist-list{list-style:none;margin:2px 0 0 30px;padding:0;font-size:14px}
+.hist-list li{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid var(--line)}
+.hist-list li:last-child{border-bottom:0}
+.hist-list li span:first-child{color:var(--dust);flex:none}
+.hist-list li span:last-child{text-align:right;font-weight:600}
+.hist-msg{font-size:13px;color:var(--dust);margin:4px 0}
+.foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+.saved{font-size:13px;color:var(--dust);display:flex;align-items:center;gap:6px;min-height:20px}
+.saved[data-tone=good]::before,.saved[data-tone=busy]::before,.saved[data-tone=bad]::before{content:"";width:7px;height:7px;border-radius:50%}
+.saved[data-tone=good]::before{background:var(--green)}
+.saved[data-tone=busy]::before{background:var(--yellow)}
+.saved[data-tone=bad]{color:var(--chalk)}
+.saved[data-tone=bad]::before{background:var(--red)}
+.saved button{text-decoration:underline;text-underline-offset:3px;color:var(--chalk);font-size:13px}
+.done-btn{flex:none;background:var(--chalk);color:var(--floor);font-weight:800;font-stretch:80%;font-size:17px;border-radius:999px;padding:12px 26px;min-width:120px}
+.done-btn.undo{background:var(--mat-2);color:var(--chalk)}
+
+.tail{margin:28px 4px 0;display:flex;flex-direction:column;gap:14px;align-items:flex-start;font-size:14px}
+.tail a,.tail button{color:var(--dust);text-decoration:underline;text-underline-offset:3px}
+.empty-state{margin:40px 4px;color:var(--dust)}
+
+
+/* Settings sheet */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9}
+.scrim[hidden],.panel[hidden]{display:none}
+.panel{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--mat);border-radius:20px 20px 0 0;padding:18px 18px 28px;max-height:88vh;overflow:auto;max-width:560px;margin:0 auto}
+.panel h2{font-stretch:75%;font-size:22px;margin:0 0 4px}
+.panel h3{font-size:14px;color:var(--dust);font-weight:600;margin:22px 0 8px}
+.panel p{margin:0 0 8px;color:var(--dust);font-size:14px}
+.panel .field{display:flex;gap:8px}
+.panel .field input{flex:1;min-width:0;background:var(--floor);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font-size:16px}
+.btn{background:var(--chalk);color:var(--floor);font-weight:700;border-radius:999px;padding:11px 16px;font-size:14px;flex:none}
+.btn.ghost{background:var(--mat-2);color:var(--chalk)}
+.close{position:absolute;right:12px;top:12px;width:40px;height:40px;border-radius:50%;background:var(--mat-2);font-size:20px}
+.panel a{color:var(--chalk)}
+
+@media (min-width:600px){main,.top>*{max-width:560px;margin-left:auto;margin-right:auto}.banner{max-width:536px;margin-left:auto;margin-right:auto}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <button class="sheet-name" data-act="settings" aria-label="Sheet and settings">
+      <span id="sheetTitle">Your sheet</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+    <button class="sync" id="sync" data-act="settings" data-tone="busy"><i></i><span>Connecting</span></button>
+  </div>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Workouts"></nav>
+  <div class="progress"><span id="progText"></span><div class="track"><div class="fill" id="progFill"></div></div></div>
+</header>
+<div class="banner" id="banner" hidden role="status"></div>
+<main id="list"></main>
+
+<div class="scrim" id="scrim" hidden data-act="close"></div>
+<section class="panel" id="panel" hidden role="dialog" aria-modal="true" aria-labelledby="pTitle">
+  <button class="close" data-act="close" aria-label="Close">×</button>
+  <h2 id="pTitle">Settings</h2>
+  <h3>Your sheet</h3>
+  <p id="pSheet"></p>
+  <p><a id="pOpen" href="#" target="_blank" rel="noopener">Open in Google Sheets</a></p>
+  <h3>Switch to another sheet</h3>
+  <p>Starting a new month's program? Paste the new sheet's link.</p>
+  <form class="field" id="switchForm">
+    <input id="switchInput" type="url" placeholder="docs.google.com/spreadsheets/…" aria-label="Google Sheet link">
+    <button class="btn" type="submit">Switch</button>
+  </form>
+  <h3>Connection</h3>
+  <p id="pConn"></p>
+  <form class="field" id="setupForm" style="margin-bottom:10px">
+    <input id="setupInput" type="url" placeholder="Paste your setup link" aria-label="Setup link">
+    <button class="btn" type="submit">Set up</button>
+  </form>
+  <div class="field"><button class="btn ghost" data-act="reload">Reload from sheet</button></div>
+</section>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- Config ---------- */
+const DEFAULT_ID = '1BkMAMVD4iy4LWJHNNxCtmPntHSHCX0Y9_JR1ESHiZ0E';
+const COLOURS = { A: 'var(--blue)', K: 'var(--yellow)' };
+const SPARE = ['var(--green)', 'var(--red)', '#C58BF2'];
+
+/* Copy of the sheet taken 17 Nov 2026: shown until the live sheet loads. */
+const SNAPSHOT = { id: DEFAULT_ID, title: 'Gym Oct 26', when: '17 Nov', tabs: [
+['Legs', `Type,Exercise,A weight,K Weight
+Start,Iron trident 3 x 10,,20kg
+,Kettlebell wood chop 3 x 8,,12kg
+,,,
+Compound ,Barbell back squats 1 x 10;  1 x 8; 1 x 4,10x80 + 8x95+ 4x105kg,10x75 + 6x90 + 4x100
+,Romanian deadlift 3 x 8,63,70kg
+,Step ups 2 x 10,10,10kg
+,Copenhagen plank 1 each side hold as long as possible,30s,45s
+,,,
+,,,
+Finisher,Kettlebell Swing squats 2 x 10 ,20kg,20kg
+,Kettlebell cleans 2 x 10,20kg,20kg
+,Single leg l sit 2 x holds as long as possible,45s / 30s,45s
+,,,
+Cardio,10 mins cardio,,`],
+['Pull', `Type,Exercise,A weight,K Weight,Column 1
+Start,Kettlebell around the world 2 x 12,24kg,24kg,
+,Kettlebell side bends 2 x 10,24kg,24kg,
+,,,,
+Compound ,Deadlift 1 x 10;  1 x 8; 1 x 4,"80kg,90,100","105kg, 115,130",
+,Chin ups 3 x 8,Purple band / 7 body weight 6 body weight ,,
+,Single arm row lean  3 x 8,16kg,20kg,
+,Side grip lat pulldown 3 x 8,50,60kg,
+,,,,
+Finisher,Reverse cable fly 2 x 10,3.75kg,7.5kg,
+,Seated bicep curls 2 x 8,6kg,10kg,
+,,,,
+Cardio,10 mins cardio,,,`],
+['Push', `Type,Exercise,A weight,K Weight,Column 1
+Start,Dead hang long as possible,40s,40s,
+,Farmers walk 90 seconds heavy as possible,22kg,30kg,
+,,,,
+Compound ,Bench press 1x 10; 1 x 8; 1 x 4,50/52.5/57.5kg,65/72.5/85kg,
+,Dips 3 x 8,,,
+,Seated kettlebell shoulder press 3 x 8,10kg,16kg,
+,Kneeling landmine press 3 x 8,2.5kg,15kg ,
+,,,,
+Superset,Lateral raises 2 x 8,5kg,7.5kg,
+,Kettlebell press ups 2 x 10,,,
+,,,,
+Finish,10 mins cardio,,,`],
+['K full/bonus', `Type,Exercise,K Weight,Column 1
+Start,Plank,,
+,,,
+Compound ,Wide grip lat pulldowns 3 x 8,54kg,
+,,,
+,Tricep pushdown 3 x 8,23.5kg,
+,Hammer curl 3 x 8,15kg,
+,Gorilla press 3 x 8,24kg,
+,,,
+Superset,Face pull 3 x 8,23.75kg try more,
+,Kettlebell Swings 3 x 10,24kg,
+,,,
+Finish,10 mins cardio,,`]
+]};
+
+/* ---------- Small helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fmt = n => String(parseFloat(Number(n).toFixed(2)));
+const colL = i => { let s = ''; i++; while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+const quoteTab = n => `'${String(n).replace(/'/g, "''")}'`;
+const mmss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+
+function parseCSV(t) {
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (q) { if (c === '"') { if (t[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n') { row.push(f); rows.push(row); row = []; f = ''; }
+    else if (c !== '\r') f += c;
+  }
+  row.push(f); rows.push(row); return rows;
+}
+
+/* ---------- State ---------- */
+const settings = Object.assign({ sheetId: DEFAULT_ID, rest: 90, tab: null }, store.get('gymlog:settings', {}));
+const saveSettings = () => store.set('gymlog:settings', settings);
+const sessKey = () => `gymlog:session:${settings.sheetId}:${todayKey()}`;
+const pendKey = () => `gymlog:pending:${settings.sheetId}`;
+const cacheKey = () => `gymlog:data:${settings.sheetId}`;
+let session = store.get(sessKey(), { done: {}, sets: {} });
+const saveSession = () => store.set(sessKey(), session);
+
+const S = { title: '', tabs: [], source: 'none', when: '', conn: { state: 'connecting' }, open: {}, loadedAt: 0, loading: false,
+  hist: [], histState: 'none', histNext: 2, histHeader: false, histOpen: {} };
+const HISTORY = 'History';
+const isoToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const fmtDate = iso => { const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return String(iso); const d = new Date(+m[1], +m[2] - 1, +m[3]); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : '2-digit' }); };
+const exKey = (tab, ex) => `${tab}|${ex.row}`;
+// Only workouts with an A column show: K's solo tabs stay in the sheet but not in the app.
+const visibleTabs = () => { const v = S.tabs.filter(t => t.people.some(p => p.label.toUpperCase() === 'A')); return v.length ? v : S.tabs; };
+const curTab = () => { const v = visibleTabs(); return v.find(t => t.name === settings.tab) || v[0]; };
+
+/* ---------- Parsing a cell like "10x80 + 8x95 + 4x105kg", "50/52.5/57.5kg", "23.75kg try more" ---------- */
+function parseCell(raw) {
+  const v = String(raw ?? '').trim();
+  const out = { raw: v, mode: 'num', style: 'single', unit: null, vals: [], reps: [], note: '' };
+  if (!v) { out.empty = true; return out; }
+  if (!/^\d/.test(v)) { out.mode = 'text'; return out; }
+  const numRe = /\s*(\d+(?:\.\d+)?)\s*(kg|secs?\b|s\b)?/iy;
+  const sepRe = /\s*([\/,+&x×])\s*/iy;
+  const items = [], seps = []; let pos = 0;
+  for (;;) {
+    numRe.lastIndex = pos; const n = numRe.exec(v); if (!n) break;
+    items.push({ n: +n[1], u: (n[2] || '').toLowerCase() }); pos = numRe.lastIndex;
+    sepRe.lastIndex = pos; const s = sepRe.exec(v); if (!s) break;
+    numRe.lastIndex = sepRe.lastIndex; if (!numRe.test(v)) break;
+    seps.push(s[1].toLowerCase()); pos = sepRe.lastIndex;
+  }
+  out.note = v.slice(pos).trim();
+  if (/\d/.test(out.note)) { out.mode = 'text'; return out; }
+  const units = items.map(i => i.u);
+  out.unit = units.includes('kg') ? 'kg' : units.some(u => u.startsWith('s')) ? 's' : null;
+  if (seps.some(s => s === 'x' || s === '×')) {
+    // reps x weight pairs
+    let i = 0;
+    while (i < items.length) {
+      if (seps[i] === 'x' || seps[i] === '×') { out.reps.push(items[i].n); out.vals.push(items[i + 1].n); i += 2; }
+      else { out.mode = 'text'; return out; }
+    }
+    out.style = 'rxw';
+  } else {
+    out.vals = items.map(i => i.n);
+    out.style = out.vals.length > 1 ? 'multi' : 'single';
+  }
+  return out;
+}
+
+/* ---------- Building the model from a sheet tab ---------- */
+function buildTab(name, grid) {
+  grid = grid || [];
+  const head = (grid[0] || []).map(h => String(h ?? '').trim());
+  let typeCol = head.findIndex(h => /^type$/i.test(h)); if (typeCol < 0) typeCol = 0;
+  let exCol = head.findIndex(h => /exercise/i.test(h)); if (exCol < 0) exCol = 1;
+  const people = [];
+  head.forEach((h, i) => { const m = h.match(/^(.+?)\s*weights?$/i); if (m) people.push({ label: m[1].trim(), col: i }); });
+  people.forEach((p, i) => { p.colour = COLOURS[p.label.toUpperCase()] || SPARE[i % SPARE.length]; });
+  const exercises = []; let section = '';
+  for (let r = 1; r < grid.length; r++) {
+    const row = grid[r] || [];
+    const t = String(row[typeCol] ?? '').trim(); if (t) section = t;
+    const name2 = String(row[exCol] ?? '').trim(); if (!name2) continue;
+    exercises.push(buildEx(name, name2, section, r + 1, row, people, exCol));
+  }
+  return { name, people, exercises, grid };
+}
+
+function buildEx(tab, name, section, rowNum, row, people, exCol) {
+  const ex = { tab, row: rowNum, section, name, groups: [] };
+  const gre = /(\d+)\s*[x×]\s*(\d+|holds?)\b/gi; let m, first = -1, lastEnd = 0;
+  while ((m = gre.exec(name))) { if (first < 0) first = m.index; ex.groups.push({ sets: +m[1], reps: /^\d+$/.test(m[2]) ? +m[2] : null }); lastEnd = gre.lastIndex; }
+  ex.title = first > 0 ? name.slice(0, first).trim() : name;
+  ex.extra = first >= 0 ? name.slice(lastEnd).replace(/^[\s;,]+/, '').trim() : '';
+  if (first < 0) {
+    // Move instructions like "1 each side hold as long as possible" out of the name and into a description
+    const cut = name.search(/\s(?=\d|(?:hold\s+)?(?:as\s+)?long as possible|heavy as possible)/i);
+    if (cut > 0) { ex.title = name.slice(0, cut).trim(); ex.extra = name.slice(cut).trim(); }
+  }
+  ex.sets = ex.groups.length ? ex.groups.reduce((a, g) => a + g.sets, 0) : 1;
+  ex.pyramid = ex.groups.length > 1;
+  ex.cardio = /cardio/i.test(name);
+  const holdName = /\bhold|\bhang\b|plank|\bl[\s-]?sit/i.test(name);
+  const parsed = people.map(p => parseCell(row[p.col]));
+  const anyKg = parsed.some(c => c.unit === 'kg'), anyS = parsed.some(c => c.unit === 's');
+  ex.unit = anyS && !anyKg ? 's' : anyKg ? 'kg' : holdName ? 's' : 'kg';
+  ex.step = ex.unit === 's' ? 5 : /kettle\s?bell/i.test(name) ? 2 : 2.5;
+  const anyText = parsed.some(c => c.mode === 'text');
+  ex.cells = {};
+  people.forEach((p, i) => {
+    const c = { tab, row: rowNum, exCol, person: p.label, colour: p.colour, a1: colL(p.col) + rowNum, sheet: parsed[i].raw, local: parsed[i].raw, state: 'idle', err: null };
+    initEditor(c, ex, parsed[i], anyText);
+    ex.cells[p.label] = c;
+  });
+  return ex;
+}
+
+function initEditor(c, ex, pc, siblingText) {
+  if (ex.cardio) { c.mode = 'none'; return; }
+  if (pc.mode === 'text' || (pc.empty && siblingText)) { c.mode = 'text'; c.text = pc.raw; return; }
+  c.mode = 'num'; c.unit = pc.unit || ex.unit; c.note = pc.note || ''; c.rxw = pc.style === 'rxw';
+  let n = ex.pyramid ? ex.groups.length : pc.vals.length > 1 ? pc.vals.length : (ex.unit === 's' && ex.sets > 1 ? ex.sets : 1);
+  n = Math.max(n, pc.vals.length, 1);
+  c.slots = [];
+  for (let i = 0; i < n; i++) {
+    const tgt = ex.pyramid ? (ex.groups[i] ? ex.groups[i].reps : null) : (ex.groups[0] ? ex.groups[0].reps : null);
+    c.slots.push({ w: pc.vals[i] ?? null, r: pc.reps[i] ?? tgt });
+  }
+}
+
+function compose(c) {
+  if (c.mode === 'text') return String(c.text || '').trim();
+  if (c.mode === 'none') return c.sheet;
+  const u = c.unit === 's' ? 's' : c.unit === 'kg' ? 'kg' : '';
+  const f = c.slots.filter(s => s.w != null && !isNaN(s.w));
+  let v = '';
+  if (f.length) {
+    if (c.rxw) v = f.map(s => (s.r != null ? `${s.r}x` : '') + fmt(s.w)).join(' + ') + u;
+    else if (u === 's' && f.length > 1) v = f.map(s => fmt(s.w) + 's').join(' / ');
+    else if (f.length > 1) v = f.map(s => fmt(s.w)).join('/') + u;
+    else v = fmt(f[0].w) + u;
+  }
+  if (c.note) v = v ? `${v} ${c.note}` : c.note;
+  return v;
+}
+
+function slotLabel(ex, c, i) {
+  if (c.slots.length < 2) return '';
+  if (ex.pyramid) return null; // reps shown instead
+  return c.unit === 's' ? `Hold ${i + 1}` : `Set ${i + 1}`;
+}
+
+/* ---------- Data in and out ---------- */
+function applyData(data, source) {
+  S.title = data.title || S.title || 'Your sheet';
+  S.tabs = data.tabs.map(t => buildTab(t.name, t.grid));
+  S.source = source; S.when = data.when || '';
+  // restore edits that never reached the sheet
+  const pend = store.get(pendKey(), {});
+  for (const k in pend) {
+    const p = pend[k]; const ex = findEx(p.tab, p.row); const c = ex && ex.cells[p.person];
+    if (!c || c.mode === 'none' || (p.name && ex.name !== p.name)) continue;
+    c.local = p.value; c.state = 'error'; c.err = { code: 'unsent' };
+    const pc = parseCell(p.value); initEditor(c, ex, pc, pc.mode === 'text');
+  }
+  const vis = visibleTabs();
+  if (!vis.some(t => t.name === settings.tab)) settings.tab = vis[0] ? vis[0].name : null;
+}
+function findEx(tab, row) { const t = S.tabs.find(x => x.name === tab); return t && t.exercises.find(e => e.row === row); }
+function allCells() { const out = []; S.tabs.forEach(t => t.exercises.forEach(e => Object.values(e.cells).forEach(c => out.push(c)))); return out; }
+function persistCache() {
+  if (S.source !== 'live') return;
+  store.set(cacheKey(), { title: S.title, at: Date.now(), tabs: S.tabs.map(t => ({ name: t.name, grid: t.grid })), hist: S.histState === 'live' ? S.hist : undefined });
+}
+function applyHistory(grid) {
+  S.hist = []; grid = grid || [];
+  S.histHeader = !!(grid[0] && String(grid[0][0] || '').trim());
+  for (let r = 1; r < grid.length; r++) {
+    const g = grid[r] || []; let date = String(g[0] ?? '').trim(); if (!date) continue;
+    const uk = date.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (uk) date = `${uk[3]}-${uk[2].padStart(2, '0')}-${uk[1].padStart(2, '0')}`;
+    S.hist.push({ row: r + 1, date, workout: String(g[1] ?? ''), exercise: String(g[2] ?? '').trim(), person: String(g[3] ?? '').trim(), value: String(g[4] ?? '').trim() });
+  }
+  S.histNext = Math.max(grid.length + 1, 2);
+}
+function savePending() {
+  const pend = {};
+  allCells().forEach(c => {
+    if (c.local === c.sheet) return;
+    const ex = findEx(c.tab, c.row);
+    pend[`${c.tab}|${c.row}|${c.person}`] = { tab: c.tab, row: c.row, person: c.person, name: ex ? ex.name : '', value: c.local };
+  });
+  store.set(pendKey(), pend);
+}
+function setGrid(c, v) {
+  const t = S.tabs.find(x => x.name === c.tab); if (!t) return;
+  const col = t.people.find(p => p.label === c.person).col;
+  t.grid[c.row - 1] = t.grid[c.row - 1] || []; t.grid[c.row - 1][col] = v;
+}
+
+/* ---------- Sheet script API ---------- */
+// Set once per phone from the setup link: { url, key }
+let api = store.get('gymlog:api', null);
+function readSetupHash() {
+  const m = location.hash.match(/^#setup=([A-Za-z0-9_-]+)/);
+  if (!m) return false;
+  try {
+    const json = JSON.parse(atob(m[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (json.u && json.k) { api = { url: json.u, key: json.k }; store.set('gymlog:api', api); }
+  } catch {}
+  history.replaceState(null, '', location.pathname + location.search);
+  return true;
+}
+async function post(body, ms = 25000) {
+  if (!api) throw { code: 'no_setup' };
+  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), ms);
+  let r;
+  try {
+    r = await fetch(api.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ key: api.key, sheetId: settings.sheetId }, body)), signal: ctrl.signal, redirect: 'follow' });
+  } catch (e) { throw { code: navigator.onLine === false ? 'offline' : 'network' }; }
+  finally { clearTimeout(t); }
+  let j; try { j = await r.json(); } catch { throw { code: 'bad_response', message: `HTTP ${r.status}` }; }
+  if (!j.ok) throw { code: j.error || 'failed', message: j.message || '', found: j.found };
+  return j;
+}
+
+async function loadLive() {
+  if (!api || S.loading) return;
+  S.loading = true; paintSync();
+  try {
+    const j = await post({ action: 'load' });
+    const hist = j.tabs.find(t => t.name === HISTORY);
+    const tabs = j.tabs.filter(t => !t.hidden && t.name !== HISTORY);
+    const focused = document.activeElement && document.activeElement.closest && document.activeElement.closest('#list');
+    savePending();
+    applyData({ title: j.title || S.title, tabs: tabs.map(t => ({ name: t.name, grid: t.grid })) }, 'live');
+    applyHistory(hist ? hist.grid : []); S.histState = 'live';
+    S.conn = { state: 'live' }; S.loadedAt = Date.now();
+    persistCache();
+    if (!focused) renderList();
+    if (allCells().some(c => c.local !== c.sheet)) flushAll();
+  } catch (e) {
+    S.conn = { state: 'error', code: (e && e.code) || 'network', msg: (e && e.message) || '' };
+  }
+  S.loading = false;
+  renderChrome();
+}
+
+/* ---------- Saving ---------- */
+const timers = new Map();
+function changed(ex, c) {
+  c.local = compose(c);
+  paintChips(ex);
+  schedule(c);
+}
+function schedule(c) {
+  clearTimeout(timers.get(c));
+  if (c.state === 'saving') { c.again = true; return; }
+  if (c.local === c.sheet) { c.state = c.state === 'saved' ? 'saved' : 'idle'; c.err = null; }
+  else { c.state = 'queued'; timers.set(c, setTimeout(() => flush(c), 1200)); }
+  savePending(); paintSave(c); paintSync();
+}
+async function flush(c) {
+  clearTimeout(timers.get(c));
+  if (c.state === 'saving') { c.again = true; return; }
+  if (c.local === c.sheet) { if (c.state !== 'saved') c.state = 'idle'; paintSave(c); paintSync(); return; }
+  if (!api) { c.state = 'error'; c.err = { code: 'no_setup' }; paintSave(c); paintSync(); renderBanner(); return; }
+  const v = c.local;
+  c.state = 'saving'; c.again = false; paintSave(c); paintSync();
+  try {
+    const ex = findEx(c.tab, c.row);
+    const date = isoToday();
+    const j = await post({ action: 'write', tab: c.tab, a1: c.a1, value: v,
+      expect: { col: c.exCol + 1, name: ex ? ex.name : '' },
+      history: v && ex ? { date, workout: c.tab, exercise: ex.title, person: c.person } : null });
+    c.sheet = v; setGrid(c, v); c.err = null;
+    if (j.histRow && ex) {
+      const h = S.hist.find(x => x.row === j.histRow);
+      if (h) h.value = v; else S.hist.push({ row: j.histRow, date, workout: c.tab, exercise: ex.title, person: c.person, value: v });
+      refreshHistory(ex);
+    }
+    c.state = c.local === c.sheet ? 'saved' : 'idle';
+    if (S.conn.state !== 'live' && S.source === 'live') S.conn = { state: 'live' };
+  } catch (e) {
+    c.state = 'error'; c.err = e || { code: 'upstream_error' };
+  }
+  savePending(); persistCache();
+  if (c.state !== 'error' && c.local !== c.sheet) schedule(c);
+  paintSave(c); paintSync(); renderBanner();
+}
+function flushCard(ex) { Object.values(ex.cells).forEach(c => { if (c.local !== c.sheet && c.state !== 'saving') flush(c); }); }
+function flushAll() { allCells().forEach(c => { if (c.local !== c.sheet && c.state !== 'saving') flush(c); }); }
+
+/* ---------- Rendering ---------- */
+function renderChrome() { renderHeader(); renderBanner(); paintSync(); }
+function render() { renderChrome(); renderList(); }
+
+function renderHeader() {
+  $('#sheetTitle').textContent = S.title || 'Your sheet';
+  const tabs = $('#tabs');
+  tabs.innerHTML = visibleTabs().map(t => `<button class="tab" role="tab" data-act="tab" data-tab="${esc(t.name)}" aria-selected="${t.name === settings.tab}">${esc(t.name)}</button>`).join('');
+  paintProgress();
+}
+function paintProgress() {
+  const t = curTab(); if (!t) { $('#progText').textContent = ''; return; }
+  const total = t.exercises.length, done = t.exercises.filter(e => session.done[exKey(t.name, e)]).length;
+  $('#progText').textContent = total ? `${done} of ${total} done` : '';
+  $('#progFill').style.width = total ? `${(done / total) * 100}%` : '0';
+}
+
+function connCopy() {
+  const c = S.conn;
+  if (c.state === 'setup') return { tone: 'warn', text: 'Finish setup: open the setup link from Claude on this phone, or paste it in settings.', act: 'Settings', fn: 'settings' };
+  if (c.state !== 'error') return null;
+  switch (c.code) {
+    case 'offline': return { tone: 'warn', text: "No signal. You can keep logging: changes save as soon as you're back online.", act: 'Retry', fn: 'reload' };
+    case 'bad_key': return { tone: 'bad', text: "This phone's setup is out of date. Open the latest setup link from Claude.", act: 'Settings', fn: 'settings' };
+    case 'no_sheet': return { tone: 'bad', text: "Couldn't open that sheet. Check the link in settings.", act: 'Settings', fn: 'settings' };
+    case 'row_moved': return { tone: 'bad', text: 'The sheet changed since you opened it (rows added or moved). Reload to get the latest, then save again.', act: 'Reload', fn: 'reload' };
+    default: return { tone: 'bad', text: "Can't reach your sheet right now. Changes stay on this phone and save when it's back.", act: 'Retry', fn: 'reload' };
+  }
+}
+function shortMsg(m) { m = String(m || '').replace(/[{}"\[\]]/g, ' ').replace(/\s+/g, ' ').trim(); return m.length > 120 ? m.slice(0, 117) + '…' : m; }
+
+function renderBanner() {
+  const b = $('#banner');
+  const unsaved = allCells().filter(c => c.state === 'error');
+  const cc = connCopy();
+  let html = '', tone = 'warn';
+  if (cc) { tone = cc.tone; html = `<span>${esc(cc.text)}</span>${cc.act ? `<button class="act" data-act="${cc.fn}">${cc.act}</button>` : ''}`; }
+  else if (unsaved.length) {
+    tone = 'bad';
+    const n = unsaved.length;
+    html = `<span>${n} ${n === 1 ? 'change hasn\'t' : 'changes haven\'t'} reached the sheet yet.</span>${api ? '<button class="act" data-act="saveall">Save now</button>' : ''}`;
+  }
+  b.hidden = !html; b.dataset.tone = tone; b.innerHTML = html;
+}
+
+function paintSync() {
+  const el = $('#sync'); const span = el.querySelector('span');
+  const cells = allCells();
+  const err = cells.filter(c => c.state === 'error').length;
+  const busy = cells.some(c => c.state === 'saving' || c.state === 'queued');
+  let tone = 'idle', text = '';
+  if (busy) { tone = 'busy'; text = 'Saving'; }
+  else if (err) { tone = 'bad'; text = `${err} not saved`; }
+  else if (S.loading) { tone = 'busy'; text = S.source === 'live' ? 'Updating' : 'Connecting'; }
+  else if (S.conn.state === 'live') { tone = 'good'; text = 'Synced'; }
+  else if (S.conn.state === 'setup') { tone = 'idle'; text = 'Not set up'; }
+  else if (S.conn.state === 'error' && S.conn.code === 'offline') { tone = 'idle'; text = 'Offline'; }
+  else if (S.conn.state === 'error') { tone = 'bad'; text = 'Offline copy'; }
+  else { tone = 'busy'; text = 'Connecting'; }
+  el.dataset.tone = tone; span.textContent = text;
+}
+
+function chipsHTML(ex) {
+  const cs = Object.values(ex.cells);
+  if (ex.cardio || !cs.length) return '';
+  return `<span class="chips">${cs.map(c => `<span class="chip${c.local ? '' : ' empty'}"><i class="badge sm" style="--c:${c.colour}">${esc(c.person)}</i>${c.local ? esc(c.local) : 'Not logged'}</span>`).join('')}</span>`;
+}
+function schemeText(ex) {
+  if (!ex.groups.length) return '';
+  if (ex.pyramid) return ex.groups.every(g => g.sets === 1 && g.reps) ? `${ex.groups.map(g => g.reps).join(', ')} reps` : ex.groups.map(g => `${g.sets} × ${g.reps ?? 'hold'}`).join(', ');
+  const g = ex.groups[0];
+  return g.reps ? `${g.sets} × ${g.reps}` : `${g.sets} ${g.sets === 1 ? 'hold' : 'holds'}`;
+}
+
+function personHTML(ex, c) {
+  const badge = `<span class="badge" style="--c:${c.colour}" aria-label="${esc(c.person)}">${esc(c.person)}</span>`;
+  if (c.mode === 'text') {
+    return `<div class="person" data-person="${esc(c.person)}">
+      <div class="row text"><div class="lab">${badge}</div>
+        <input class="txt" data-act="text" value="${esc(c.text)}" placeholder="e.g. 20kg or bodyweight" aria-label="${esc(c.person)} ${esc(ex.title)}"></div>
+      <div class="under">${parseCell(c.text).mode === 'num' || !c.text ? '<button class="link" data-act="mode">Use + and −</button>' : ''}</div></div>`;
+  }
+  const unit = c.unit === 's' ? 's' : c.unit === 'kg' ? 'kg' : '';
+  const stepTxt = c.unit === 's' ? `${ex.step} seconds` : `${fmt(ex.step)}kg`;
+  const rows = c.slots.map((s, i) => {
+    let label = '';
+    if (ex.pyramid) label = c.rxw
+      ? `<input class="reps" data-act="reps" inputmode="numeric" value="${s.r ?? ''}" aria-label="${esc(c.person)} reps for set ${i + 1}"> reps`
+      : `${s.r ?? ''} reps`;
+    else label = slotLabel(ex, c, i) || '';
+    return `<div class="row" data-i="${i}">
+      <div class="lab">${i === 0 ? badge : '<span class="badge-gap"></span>'}<span>${label}</span></div>
+      <button class="step" data-act="dec" aria-label="${esc(c.person)} down ${stepTxt}">−</button>
+      <label class="val"><input data-act="num" inputmode="decimal" enterkeyhint="done" autocomplete="off" value="${s.w == null ? '' : fmt(s.w)}" placeholder="–" aria-label="${esc(c.person)} ${esc(ex.title)}${c.slots.length > 1 ? ' set ' + (i + 1) : ''}">${unit ? `<span class="u">${unit}</span>` : ''}</label>
+      <button class="step" data-act="inc" aria-label="${esc(c.person)} up ${stepTxt}">+</button>
+    </div>`;
+  }).join('');
+  const note = c.note ? `<span class="note">${esc(c.note)}<button data-act="clearnote" aria-label="Remove note ${esc(c.note)}">×</button></span>` : '';
+  return `<div class="person${ex.pyramid ? ' pyr' : ''}" data-person="${esc(c.person)}">${rows}<div class="under">${note}<button class="link" data-act="mode">Type instead</button></div></div>`;
+}
+
+function savedLine(ex) {
+  const cs = Object.values(ex.cells);
+  if (cs.some(c => c.state === 'error')) {
+    const off = cs.some(c => c.err && (c.err.code === 'offline' || c.err.code === 'network'));
+    if (off) return { tone: 'busy', html: 'Waiting for signal' };
+    if (cs.some(c => c.err && c.err.code === 'row_moved')) return { tone: 'bad', html: 'Sheet changed. <button data-act="reload">Reload</button>' };
+    return { tone: 'bad', html: api ? `Not saved. <button data-act="retry">Try again</button>` : 'Not saved. Finish setup first.' };
+  }
+  if (cs.some(c => c.state === 'saving' || c.state === 'queued')) return { tone: 'busy', html: 'Saving to sheet' };
+  if (cs.some(c => c.state === 'saved')) return { tone: 'good', html: 'Saved to sheet' };
+  return { tone: '', html: '' };
+}
+
+function topNum(v) { const pc = parseCell(v); return pc.mode === 'num' && pc.vals.length ? Math.max(...pc.vals) : null; }
+function sparkline(points, colour) {
+  const nums = points.map(p => p.n); const min = Math.min(...nums), max = Math.max(...nums);
+  const W = 240, H = 44, pad = 5, span = max - min || 1;
+  const xy = nums.map((n, i) => [pad + (i * (W - pad * 2)) / Math.max(nums.length - 1, 1), H - pad - ((n - min) / span) * (H - pad * 2)]);
+  const d = xy.map(p => p.map(v => v.toFixed(1)).join(',')).join(' ');
+  const last = xy[xy.length - 1];
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${d}" fill="none" stroke="${colour}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/><circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="4" fill="${colour}"/></svg>`;
+}
+function histHTML(ex) {
+  if (S.histState !== 'live' && S.histState !== 'cached') return `<p class="hist-msg">History shows once the app has loaded your sheet.</p>`;
+  const blocks = Object.values(ex.cells).map(c => {
+    const byDate = {};
+    S.hist.filter(h => h.exercise === ex.title && h.person === c.person && h.value).forEach(h => { if (!byDate[h.date] || h.row > byDate[h.date].row) byDate[h.date] = h; });
+    const entries = Object.values(byDate).sort((a, b) => (a.date < b.date ? 1 : -1));
+    const badge = `<span class="badge sm" style="--c:${c.colour}">${esc(c.person)}</span>`;
+    if (!entries.length) return `<div class="hist-p"><div class="hist-h">${badge}<span class="hist-none">Nothing logged yet</span></div></div>`;
+    const pts = entries.slice(0, 12).reverse().map(h => ({ n: topNum(h.value) })).filter(p => p.n != null);
+    return `<div class="hist-p"><div class="hist-h">${badge}${pts.length > 1 ? sparkline(pts, c.colour) : ''}</div>
+      <ul class="hist-list">${entries.slice(0, 6).map(h => `<li><span>${esc(fmtDate(h.date))}</span><span>${esc(h.value)}</span></li>`).join('')}</ul></div>`;
+  }).join('');
+  return `<div class="hist">${blocks}</div>`;
+}
+function refreshHistory(ex) {
+  const el = cardEl(ex); if (!el || !el.classList.contains('open')) return;
+  if (el.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+  const box = el.querySelector('.hist-wrap'); if (box) box.innerHTML = S.histOpen[exKey(ex.tab, ex)] ? histHTML(ex) : '';
+}
+
+function cardHTML(ex) {
+  const t = curTab(); const k = exKey(t.name, ex);
+  const open = S.open[t.name] === ex.row, done = !!session.done[k];
+  const scheme = schemeText(ex);
+  let body = '';
+  if (open) {
+    const cs = Object.values(ex.cells);
+    const people = ex.cardio ? '' : cs.map(c => personHTML(ex, c)).join('');
+    const sv = savedLine(ex);
+    const hOpen = !!S.histOpen[k];
+    const hist = ex.cardio || !cs.length ? '' : `<div class="hist-row"><button class="hist-btn" data-act="hist" aria-expanded="${hOpen}">${hOpen ? 'Hide history' : 'History'}</button></div><div class="hist-wrap">${hOpen ? histHTML(ex) : ''}</div>`;
+    body = `<div class="body">
+      ${people}${hist}
+      <div class="foot"><span class="saved" data-tone="${sv.tone}">${sv.html}</span>
+        <button class="done-btn${done ? ' undo' : ''}" data-act="done">${done ? 'Not done' : 'Done'}</button></div>
+    </div>`;
+  }
+  return `<article class="card${open ? ' open' : ''}${done ? ' done' : ''}" data-row="${ex.row}">
+    <button class="head" data-act="toggle" aria-expanded="${open}">
+      <span class="tick" aria-label="${done ? 'Done' : 'Not done'}"></span>
+      <span class="ttl">${esc(ex.title)}</span>
+      ${scheme ? `<span class="scheme">${esc(scheme)}</span>` : ''}
+      ${ex.extra ? `<span class="desc">${esc(ex.extra.charAt(0).toUpperCase() + ex.extra.slice(1))}</span>` : ''}
+      ${open ? '' : chipsHTML(ex)}
+    </button>${body}
+  </article>`;
+}
+
+function renderList() {
+  const t = curTab(); const list = $('#list');
+  if (!t) { list.innerHTML = `<p class="empty-state">${S.conn.state === 'connecting' ? 'Loading your sheet…' : 'No workouts found in this sheet.'}</p>`; paintProgress(); return; }
+  if (!(t.name in S.open)) { const first = t.exercises.find(e => !session.done[exKey(t.name, e)]); S.open[t.name] = first ? first.row : null; }
+  let html = '', sec = null;
+  t.exercises.forEach(ex => {
+    if (ex.section !== sec) { sec = ex.section; if (sec) html += `<h2 class="section">${esc(sec)}</h2>`; }
+    html += cardHTML(ex);
+  });
+  if (!t.exercises.length) html = `<p class="empty-state">No exercises on this tab yet. Add them in the sheet, then reload.</p>`;
+  html += `<div class="tail">
+    <a href="https://docs.google.com/spreadsheets/d/${esc(settings.sheetId)}/edit" target="_blank" rel="noopener">Open ${esc(S.title || 'the sheet')} in Google Sheets</a>
+    <button data-act="clear">Clear today's ticks for ${esc(t.name)}</button></div>`;
+  list.innerHTML = html;
+  paintProgress();
+}
+function cardEl(ex) { return document.querySelector(`#list .card[data-row="${ex.row}"]`); }
+function rerenderCard(ex) { const el = cardEl(ex); if (el) el.outerHTML = cardHTML(ex); }
+function paintChips(ex) {
+  const el = cardEl(ex); if (!el || el.classList.contains('open')) return;
+  const old = el.querySelector('.chips'); if (old) old.outerHTML = chipsHTML(ex);
+}
+function paintSave(c) {
+  const t = curTab(); if (!t || t.name !== c.tab) return;
+  const ex = findEx(c.tab, c.row); const el = ex && cardEl(ex); if (!el) return;
+  const s = el.querySelector('.saved'); if (s) { const sv = savedLine(ex); s.dataset.tone = sv.tone; s.innerHTML = sv.html; }
+  if (!el.classList.contains('open')) paintChips(ex);
+}
+
+/* ---------- Interactions ---------- */
+function ctx(target) {
+  const card = target.closest('.card'); const t = curTab();
+  const ex = card && t ? t.exercises.find(e => e.row === +card.dataset.row) : null;
+  const pEl = target.closest('[data-person]'); const c = ex && pEl ? ex.cells[pEl.dataset.person] : null;
+  const iEl = target.closest('[data-i]'); const i = iEl ? +iEl.dataset.i : null;
+  return { ex, c, i };
+}
+function setInput(ex, c, i) {
+  const el = cardEl(ex); if (!el) return;
+  const inp = el.querySelector(`[data-person="${CSS.escape(c.person)}"] [data-i="${i}"] input[data-act="num"]`);
+  if (inp) inp.value = c.slots[i].w == null ? '' : fmt(c.slots[i].w);
+}
+function step(ex, c, i, dir) {
+  const s = c.slots[i];
+  if (s.w == null) {
+    if (dir < 0) return;
+    const prev = i > 0 ? c.slots[i - 1].w : null;
+    const other = Object.values(ex.cells).find(o => o !== c && o.mode === 'num' && o.slots[i] && o.slots[i].w != null);
+    s.w = prev ?? (other ? other.slots[i].w : ex.step);
+  } else {
+    const nv = Math.round((s.w + dir * ex.step) * 100) / 100;
+    s.w = nv <= 0 ? null : nv;
+  }
+  setInput(ex, c, i);
+  changed(ex, c);
+}
+function toggleOpen(ex) {
+  const t = curTab();
+  const cur = S.open[t.name];
+  if (cur != null) { const prev = t.exercises.find(e => e.row === cur); if (prev) flushCard(prev); }
+  S.open[t.name] = cur === ex.row ? null : ex.row;
+  renderList();
+  if (S.open[t.name] != null) { const el = cardEl(ex); if (el) el.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' }); }
+}
+function markDone(ex) {
+  const t = curTab(); const k = exKey(t.name, ex);
+  flushCard(ex);
+  if (session.done[k]) { delete session.done[k]; saveSession(); rerenderCard(ex); paintProgress(); return; }
+  session.done[k] = true; saveSession();
+  const exs = t.exercises; const idx = exs.indexOf(ex);
+  const next = exs.slice(idx + 1).find(e => !session.done[exKey(t.name, e)]) || exs.find(e => !session.done[exKey(t.name, e)]);
+  S.open[t.name] = next ? next.row : null;
+  renderList();
+  if (next) { const el = cardEl(next); if (el) el.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' }); }
+}
+function switchMode(ex, c) {
+  if (c.mode === 'num') { c.mode = 'text'; c.text = c.local; }
+  else {
+    const pc = parseCell(c.text);
+    if (pc.mode === 'text') return;
+    initEditor(c, ex, pc, false);
+  }
+  rerenderCard(ex);
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const act = b.dataset.act;
+  const { ex, c, i } = ctx(b);
+  switch (act) {
+    case 'tab': {
+      const t = curTab(); const o = t && S.open[t.name]; if (o != null) { const p = t.exercises.find(x => x.row === o); if (p) flushCard(p); }
+      settings.tab = b.dataset.tab; saveSettings(); renderHeader(); renderList(); window.scrollTo(0, 0); break;
+    }
+    case 'toggle': toggleOpen(ex); break;
+    case 'inc': step(ex, c, i, 1); break;
+    case 'dec': step(ex, c, i, -1); break;
+    case 'mode': switchMode(ex, c); break;
+    case 'clearnote': c.note = ''; changed(ex, c); rerenderCard(ex); break;
+    case 'hist': { const k = exKey(ex.tab, ex); S.histOpen[k] = !S.histOpen[k]; rerenderCard(ex); break; }
+    case 'done': markDone(ex); break;
+    case 'retry': flushCard(ex); break;
+    case 'saveall': flushAll(); break;
+    case 'reload': S.conn = { state: S.source === 'live' ? 'live' : 'connecting' }; loadLive(); renderChrome(); break;
+    case 'clear': {
+      const t = curTab(); t.exercises.forEach(x => { const k = exKey(t.name, x); delete session.done[k]; delete session.sets[k]; });
+      saveSession(); delete S.open[t.name]; renderList(); window.scrollTo(0, 0); break;
+    }
+    case 'settings': openPanel(); break;
+    case 'close': closePanel(); break;
+  }
+});
+
+document.addEventListener('input', e => {
+  const t = e.target; const act = t.dataset && t.dataset.act; if (!act) return;
+  const { ex, c, i } = ctx(t); if (!ex || !c) return;
+  if (act === 'num') { const v = parseFloat(t.value.replace(',', '.')); c.slots[i].w = isNaN(v) || v <= 0 ? null : v; changed(ex, c); }
+  else if (act === 'reps') { const v = parseInt(t.value, 10); c.slots[i].r = isNaN(v) ? null : v; changed(ex, c); }
+  else if (act === 'text') { c.text = t.value; changed(ex, c); }
+});
+document.addEventListener('focusout', e => {
+  const t = e.target; if (!t.dataset || t.dataset.act !== 'num') return;
+  const { ex, c, i } = ctx(t); if (c && c.slots && c.slots[i]) setInput(ex, c, i);
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.matches && e.target.matches('#list input')) e.target.blur();
+  if (e.key === 'Escape' && !$('#panel').hidden) closePanel();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { flushAll(); return; }
+  if (!api) return;
+  if (allCells().some(c => c.local !== c.sheet)) flushAll();
+  else if (Date.now() - S.loadedAt > 60000) loadLive();
+});
+window.addEventListener('online', () => { if (api) { if (allCells().some(c => c.local !== c.sheet)) flushAll(); else loadLive(); } });
+// Edits are safe to resend (same cell, same value), so retry quietly while waiting for signal.
+setInterval(() => {
+  if (api && navigator.onLine !== false && allCells().some(c => c.state === 'error' && c.err && (c.err.code === 'offline' || c.err.code === 'network'))) flushAll();
+}, 20000);
+
+/* ---------- Settings panel ---------- */
+function openPanel() {
+  $('#pSheet').textContent = S.title || 'Your sheet';
+  $('#pOpen').href = `https://docs.google.com/spreadsheets/d/${settings.sheetId}/edit`;
+  const cc = connCopy();
+  $('#pConn').textContent = S.conn.state === 'live' ? 'Connected. Changes save to the sheet a second after you stop tapping.' : cc ? cc.text : 'Connecting to your sheet…';
+  $('#scrim').hidden = false; $('#panel').hidden = false;
+}
+function closePanel() { $('#scrim').hidden = true; $('#panel').hidden = true; }
+$('#switchForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = $('#switchInput').value.trim(); const m = v.match(/\/d\/([a-zA-Z0-9_-]{20,})/) || v.match(/^([a-zA-Z0-9_-]{20,})$/);
+  if (!m) { $('#switchInput').setCustomValidity('Paste a Google Sheets link'); $('#switchInput').reportValidity(); return; }
+  $('#switchInput').setCustomValidity('');
+  flushAll();
+  settings.sheetId = m[1]; settings.tab = null; saveSettings();
+  session = store.get(sessKey(), { done: {}, sets: {} });
+  S.tabs = []; S.title = ''; S.open = {}; S.source = 'none'; S.conn = { state: api ? 'connecting' : 'setup' };
+  loadFromCache(); closePanel(); render(); loadLive();
+});
+$('#switchInput').addEventListener('input', e => e.target.setCustomValidity(''));
+$('#setupForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = $('#setupInput').value.trim(); const i = v.indexOf('#setup=');
+  if (i < 0) { $('#setupInput').setCustomValidity('Paste the full setup link from Claude'); $('#setupInput').reportValidity(); return; }
+  history.replaceState(null, '', location.pathname + v.slice(i));
+  readSetupHash();
+  if (!api) { $('#setupInput').setCustomValidity("That link didn't work. Copy it again from Claude."); $('#setupInput').reportValidity(); return; }
+  $('#setupInput').value = ''; closePanel(); S.conn = { state: 'connecting' }; renderChrome(); loadLive();
+});
+$('#setupInput').addEventListener('input', e => e.target.setCustomValidity(''));
+
+/* ---------- Boot ---------- */
+function loadFromCache() {
+  const cached = store.get(cacheKey(), null);
+  if (cached && cached.tabs && cached.tabs.length) {
+    const d = new Date(cached.at);
+    applyData({ title: cached.title, when: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), tabs: cached.tabs }, 'cache');
+    if (Array.isArray(cached.hist)) { S.hist = cached.hist; S.histState = 'cached'; }
+  } else if (settings.sheetId === SNAPSHOT.id) {
+    applyData({ title: SNAPSHOT.title, when: SNAPSHOT.when, tabs: SNAPSHOT.tabs.map(([name, csv]) => ({ name, grid: parseCSV(csv) })) }, 'snapshot');
+  }
+}
+async function boot() {
+  loadFromCache();
+  render();
+  if (!api) { S.conn = { state: 'setup' }; renderChrome(); return; }
+  await loadLive();
+}
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+readSetupHash();
+window.addEventListener('hashchange', () => { if (readSetupHash() && api) { S.conn = { state: 'connecting' }; renderChrome(); loadLive(); } });
+// Exposed for local tests only.
+window.__gym = { parseCell, compose, buildTab, parseCSV, SNAPSHOT };
+boot();
+})();
+</script>
+</body>
+</html>
